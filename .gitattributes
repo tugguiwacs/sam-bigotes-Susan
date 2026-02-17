@@ -1,2 +1,266 @@
-# Auto detect text files and perform LF normalization
-* text=auto
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Sam Bigotes by Susan</title>
+
+<style>
+:root{
+  --yellow:#F2A900;
+  --red:#D7261E;
+  --green:#25D366;
+  --dark:#111;
+  --bg:#f7f7f7;
+}
+
+body{
+  margin:0;
+  font-family:system-ui,-apple-system,Segoe UI,Roboto;
+  background:var(--bg);
+}
+
+header{
+  background:#fff;
+  padding:16px;
+  border-bottom:1px solid #eee;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+
+.brand{
+  display:flex;
+  gap:12px;
+  align-items:center;
+}
+
+.brand img{
+  height:55px;
+}
+
+main{
+  max-width:1100px;
+  margin:20px auto;
+  padding:16px;
+}
+
+.grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+  gap:16px;
+}
+
+.card{
+  background:#fff;
+  border-radius:16px;
+  padding:16px;
+  box-shadow:0 5px 15px rgba(0,0,0,.05);
+}
+
+.card img{
+  width:100%;
+  border-radius:12px;
+  margin-bottom:10px;
+}
+
+.cat{
+  font-size:12px;
+  font-weight:800;
+  color:var(--yellow);
+}
+
+.name{
+  font-weight:900;
+  margin:6px 0;
+}
+
+.price{
+  font-weight:900;
+  margin-top:8px;
+}
+
+button{
+  border:0;
+  padding:10px 14px;
+  border-radius:10px;
+  font-weight:800;
+  cursor:pointer;
+}
+
+.btn-add{
+  background:var(--yellow);
+}
+
+.cart{
+  position:fixed;
+  right:20px;
+  bottom:20px;
+  width:350px;
+  background:#fff;
+  border-radius:18px;
+  padding:16px;
+  box-shadow:0 15px 40px rgba(0,0,0,.15);
+}
+
+.cart h3{
+  margin-top:0;
+}
+
+input{
+  width:100%;
+  padding:10px;
+  margin-top:8px;
+  border-radius:8px;
+  border:1px solid #ddd;
+}
+
+.btn-whatsapp{
+  background:var(--green);
+  color:#fff;
+  width:100%;
+  margin-top:12px;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <div class="brand">
+    <img src="assets/logo-sam-bigotes.jpg">
+    <div>
+      <strong>Sam Bigotes by Susan</strong><br>
+      <small id="info"></small>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div id="menu" class="grid"></div>
+</main>
+
+<div class="cart">
+  <h3>Tu pedido</h3>
+  <div id="cart-items"></div>
+  <hr>
+  <div id="cart-total"></div>
+
+  <input id="nombre" placeholder="Nombre">
+  <input id="tel" placeholder="Teléfono">
+  <input id="direccion" placeholder="Dirección">
+
+  <button class="btn-whatsapp" onclick="confirmarPedido()">Confirmar por WhatsApp</button>
+</div>
+
+<script>
+const API_URL = "PEGA_AQUI_TU_URL_EXEC";
+
+let MENU=[];
+let CONFIG={};
+let CART=[];
+
+async function loadAll(){
+  await loadMenu();
+  await loadConfig();
+  renderCart();
+}
+
+async function loadMenu(){
+  const r = await fetch(API_URL+"?action=menu");
+  const d = await r.json();
+  MENU = d.items;
+  renderMenu();
+}
+
+async function loadConfig(){
+  const r = await fetch(API_URL+"?action=config");
+  const d = await r.json();
+  CONFIG = d.config;
+  document.getElementById("info").innerText =
+    `${CONFIG.ZONA} · ${CONFIG.HORA_INICIO} - ${CONFIG.HORA_FIN} · Envío $${CONFIG.ENVIO_FIJO}`;
+}
+
+function renderMenu(){
+  const container=document.getElementById("menu");
+  container.innerHTML="";
+  MENU.forEach(item=>{
+    const div=document.createElement("div");
+    div.className="card";
+    div.innerHTML=`
+      <div class="cat">${item.categoria}</div>
+      <div class="name">${item.nombre}</div>
+      <div>${item.descripcion}</div>
+      <div class="price">$${item.precio}</div>
+      <button class="btn-add" onclick="addToCart('${item.id}')">Agregar</button>
+    `;
+    container.appendChild(div);
+  });
+}
+
+function addToCart(id){
+  const item=MENU.find(x=>x.id===id);
+  CART.push(item);
+  renderCart();
+}
+
+function renderCart(){
+  const list=document.getElementById("cart-items");
+  list.innerHTML="";
+  let subtotal=0;
+
+  CART.forEach(x=>{
+    subtotal+=Number(x.precio);
+    list.innerHTML+=`<div>${x.nombre} - $${x.precio}</div>`;
+  });
+
+  const envio=Number(CONFIG.ENVIO_FIJO||0);
+  const total=subtotal+envio;
+
+  document.getElementById("cart-total").innerHTML=
+    `Subtotal: $${subtotal}<br>
+     Envío: $${envio}<br>
+     <strong>Total: $${total}</strong>`;
+}
+
+async function confirmarPedido(){
+  if(CART.length===0)return alert("Agrega productos");
+
+  const nombre=document.getElementById("nombre").value;
+  const tel=document.getElementById("tel").value;
+  const direccion=document.getElementById("direccion").value;
+
+  const subtotal=CART.reduce((a,b)=>a+Number(b.precio),0);
+  const envio=Number(CONFIG.ENVIO_FIJO||0);
+  const total=subtotal+envio;
+
+  const payload={
+    action:"orders",
+    nombre,
+    tel,
+    direccion,
+    subtotal,
+    envio,
+    total,
+    items:CART
+  };
+
+  await fetch(API_URL,{
+    method:"POST",
+    body:JSON.stringify(payload)
+  });
+
+  const texto=`Pedido Sam Bigotes:
+${CART.map(x=>x.nombre+" $"+x.precio).join("\n")}
+Total: $${total}
+Nombre: ${nombre}
+Dirección: ${direccion}`;
+
+  window.open(`https://wa.me/${CONFIG.WHATSAPP}?text=`+encodeURIComponent(texto));
+}
+
+loadAll();
+</script>
+
+</body>
+</html>
